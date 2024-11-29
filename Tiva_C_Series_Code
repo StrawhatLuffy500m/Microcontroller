@@ -1,0 +1,272 @@
+#include "TM4C123.h"
+
+void delay (long d);
+void Printdata(unsigned char data);
+
+void lcd_data(unsigned char data);
+void lcd_cmd(unsigned char cmd);
+void lcd_clear(void);
+void lcd_string(char *str, unsigned char len);
+void lcd_init(void);
+
+void HC05_init(void); // Initialize UART5 module for HC-05
+unsigned int Bluetooth_Read(void); //Read data from Rx5 pin of TM4C123
+void Bluetooth_Write(unsigned char data); // Transmit a character to HC-05 over Tx5 pin 
+void Bluetooth_Write_String(char *str); // Transmit a string to HC-05 over Tx5 pin 
+void Port_F_initialise(void);
+
+
+int main(){
+	
+	Port_F_initialise();
+	HC05_init(); // call HC05_init() to initialze UART1 of TM4C123GH6PM
+	int count = 1; // Example count value
+  char count_str[3];  // Assuming the count won't exceed 9 digits
+
+	
+	
+	// enabling the clock of PA,B,E,D
+    SYSCTL->RCGCGPIO = SYSCTL->RCGCGPIO | (1<<0) | (1<<1) | (1<<3) | (1<<4);
+    //digital enable
+    GPIOA->DEN |= (1<<5) | (1<<6) | (1<<7)  | (1<<2) | (1<<3)  ;
+    GPIOB->DEN |= (1<<4) ;
+    GPIOD->DEN |= (1<<0) | (1<<1) | (1<<2);
+    GPIOE->DEN |= (1<<4) | (1<<5);
+
+    // Direction as output
+	GPIOA->DIR |= (1<<5) | (1<<6) | (1<<7) | (1<<2) | (1<<3) ;
+    GPIOB->DIR |= (1<<4)  ;
+    GPIOD->DIR |= (1<<0) | (1<<1) | (1<<2);
+    GPIOE->DIR |= (1<<4) | (1<<5);
+    delay(10000);
+	
+		lcd_init();
+    
+    //lcd_data('a');
+
+while(1)
+	{
+		unsigned int c = Bluetooth_Read();          /* get a character from UART1 */
+
+/* Check the received character and take action to control onboard LEDs of TM4C123 */
+/* Send status string to Android terminnal after turning on/off LEDs */
+		
+    if( c==49){
+			lcd_clear();
+			GPIOF->DATA |=(1<<1);
+			Bluetooth_Write_String("BLUE LED ON\n");
+			lcd_cmd(0x80); //cursor to 1st row and 1st clmn
+			lcd_string("VJ", 2);
+			count= count + 1;
+			sprintf(count_str, "%d", count);
+			lcd_cmd(0xC0); // cursor to 2nd row and 1st column
+      lcd_string(count_str, strlen(count_str));
+
+		}
+		
+		if( c==50){
+			lcd_clear();
+			GPIOF->DATA |=(1<<1);
+			Bluetooth_Write_String("BLUE LED ON\n");
+			lcd_cmd(0x80); //cursor to 1st row and 1st clmn
+			lcd_string("Arya", 4);
+			count= count + 1;
+			sprintf(count_str, "%d", count);
+			lcd_cmd(0xC0); // cursor to 2nd row and 1st column
+      lcd_string(count_str, strlen(count_str));
+
+		}
+		
+		else if( c==52){
+			lcd_clear();
+			GPIOF->DATA |=(1<<1);
+			Bluetooth_Write_String("BLUE LED ON\n");
+			lcd_cmd(0x80); //cursor to 1st row and 1st clmn
+			lcd_string("VJ", 2);
+			count= count + 1;
+			sprintf(count_str, "%d", count);
+			lcd_cmd(0xC0); // cursor to 2nd row and 1st column
+      lcd_string(count_str, strlen(count_str));
+
+		}
+		
+		else if( c==53){
+			lcd_clear();
+			GPIOF->DATA |=(1<<1);
+			Bluetooth_Write_String("BLUE LED ON\n");
+			lcd_cmd(0x80); //cursor to 1st row and 1st clmn
+			lcd_string("Arya", 4);
+			count= count + 1;
+			sprintf(count_str, "%d", count);
+			lcd_cmd(0xC0); // cursor to 2nd row and 1st column
+      lcd_string(count_str, strlen(count_str));
+
+		}
+		
+		else if( c==562){
+			GPIOF->DATA |=(1<<3);
+			Bluetooth_Write_String("GREEN LED ON\n");
+			lcd_clear();
+			
+		//	lcd_cmd(0x80); //cursor to 1st row and 1st clmn
+		//lcd_string("Embedded", 8);
+		//lcd_cmd(0xC0); //cursor to 2ndst row and 1st clmn
+		//lcd_string("Systems", 7);
+			
+		}
+
+		else {
+
+
+		}
+	}
+
+}
+
+void lcd_data(unsigned char data){
+    Printdata(data);       //pass the 8Bit data to the datalines of the LCD
+    GPIOD->DATA &= (~(1<<1));   //turn off R/W for write opn in lcd
+    GPIOD->DATA |= (1<<0);  //turn on RS for writing to the data register of Lcd.
+    GPIOD->DATA |= (1<<2);  //turn on en of lcd for enabling the clk of lcd.
+    delay(10000); //wait for sometime
+    GPIOD->DATA &= (~(1<<2)); //Turn of the En of lcd.
+}
+
+void lcd_cmd(unsigned char cmd){
+    Printdata(cmd);       //pass the 8Bit data to the datalines of the LCD
+    GPIOD->DATA &= (~(1<<1));   //turn off R/W for write opn in lcd
+    GPIOD->DATA &= (~(1<<0));  //turn off RS for writing to the data register of Lcd.
+    GPIOD->DATA |= (1<<2);  //turn on en of lcd for enabling the clk of lcd.
+    delay(10000); //wait for sometime
+    GPIOD->DATA &= (~(1<<2)); //Turn of the En of lcd.
+}
+
+void lcd_string(char *str, unsigned char len){
+    char i;
+    for(i=0;i<len;i++){
+        lcd_data(str[i]);
+    }
+}
+
+void lcd_init(void){
+    lcd_cmd(0x38); // 8 bit mode utilizing 16clms and 2 rows
+    lcd_cmd(0x06); //auto incrementing the  cursor when prints the data in current
+    lcd_cmd(0x0C); // cursor off & display on
+    lcd_cmd(0x01); //clrscreen
+
+}
+
+
+void delay(long d){
+	volatile long time;
+    while(d--) {
+        for(time = 0; time < 500; time++);
+    }
+}
+
+void lcd_clear(void) {
+		lcd_cmd(0x01);
+    //lcd_cmd(0x80);    // Move cursor to first row
+    //lcd_string("                ", 16);  // Clear first row with 16 spaces
+    //lcd_cmd(0xC0);    // Move cursor to second row
+    //lcd_string("                ", 16);  // Clear second row with 16 spaces
+    //lcd_cmd(0x80);    // Return cursor to beginning
+}
+
+void Printdata(unsigned char data){
+	
+	// zeroth bit = a= PA7
+	if((data&0x01) == 0x01) { GPIOA->DATA = GPIOA->DATA | (1<<7);  }
+	else										{ GPIOA->DATA = GPIOA->DATA & (~(1<<7));  }
+	
+	// zeroth bit = b= PA6
+	if((data&0x02) == 0x02) { GPIOA->DATA = GPIOA->DATA | (1<<6);  }
+	else										{ GPIOA->DATA = GPIOA->DATA & (~(1<<6));  }
+	
+	// zeroth bit = c PA5
+	if((data&0x04) == 0x04) { GPIOA->DATA = GPIOA->DATA | (1<<5);  }
+	else										{ GPIOA->DATA = GPIOA->DATA & (~(1<<5));  }
+	
+	// zeroth bit = d= PB4
+	if((data&0x08) == 0x08) { GPIOB->DATA = GPIOB->DATA | (1<<4);  }
+	else										{ GPIOB->DATA = GPIOB->DATA & (~(1<<4));  }
+    	
+	// zeroth bit = e= PE5
+	if((data&0x10) == 0x10) { GPIOE->DATA = GPIOE->DATA | (1<<5);  }
+	else										{ GPIOE->DATA = GPIOE->DATA & (~(1<<5));  }
+    	
+	// zeroth bit = f= PE4
+	if((data&0x20) == 0x20) { GPIOE->DATA = GPIOE->DATA | (1<<4);  }
+	else										{ GPIOE->DATA = GPIOE->DATA & (~(1<<4));  }
+    	
+	// zeroth bit = g= PA3
+	if((data&0x40) == 0x40) { GPIOA->DATA = GPIOA->DATA | (1<<3);  }
+	else										{ GPIOA->DATA = GPIOA->DATA & (~(1<<3));  }
+        	
+	// zeroth bit = h= PA2
+	if((data&0x80) == 0x80) { GPIOA->DATA = GPIOA->DATA | (1<<2);  }
+	else										{ GPIOA->DATA = GPIOA->DATA & (~(1<<2));  }
+	
+}
+
+void HC05_init(void)
+{
+		SYSCTL->RCGCUART |= 0x02;  /* enable clock to UART1 */
+    SYSCTL->RCGCGPIO |= 0x02;  /* enable clock to PORTB for PB0/Rx and RB1/Tx */
+		
+	  
+    delay(1);
+		
+    /* UART1 initialization */
+		
+		UART1->CTL &= ~((1<<0)|(1<<8)|(1<<9));
+		UART1->IBRD = 325;								//Set Baud rate oin IBRD and FBDRD registers
+		UART1->FBRD = 34;		
+		UART1->LCRH |= ((0x3)<<5);				//Set word length = 8bits for communication in LCRH
+		UART1->CC |= 0x00;								//Select clock source in CC (clock config) register
+		UART1->CTL |=(1<<0)|(1<<8)|(1<<9);//Turn on UART EN and TXEN and RXEN bits from CTL
+	
+    /* UART1 TX1 and RX1 use PB1 and PB0. Configure them digital and enable alternate function */
+    GPIOB->DEN = 0x03;      /* set PB0 and PB1 as digital */
+    GPIOB->AFSEL = 0x03;    /* Use PB0,PB1 alternate function */
+    GPIOB->AMSEL = 0;    /* Turn off analg function*/
+    GPIOB->PCTL = 0x00000011;     /* configure PB0 and PB1 for UART */
+}
+
+void Port_F_initialise(){
+	SYSCTL->RCGCGPIO = SYSCTL->RCGCGPIO | (1 << 5); 	// PortF clock enable
+	//delay_var = SYSCTL->RCGC;
+	GPIOF->LOCK = 0x4C4F434B;
+	GPIOF->CR = 0x1F;
+	GPIOF->DIR = 0x0E;
+	GPIOF->PUR = 0x11;
+	GPIOF->DEN = 0X1F;
+	GPIOF->AMSEL = 0x00;
+	GPIOF->AFSEL = 0x00;
+	GPIOF->PCTL = 0x00;
+}
+
+unsigned int Bluetooth_Read(void)  
+{
+    unsigned int data;
+		//GPIOF->DATA |=(1<<1) | (1<<2) | (1<<3);
+	  while((UART1->FR & (1<<4)) != 0); /* wait until Rx buffer is not full */
+    data = (UART1->DR) ;  	/* before giving it another byte */
+		//GPIOF->DATA |=(1<<1) | (1<<2) | (1<<3);
+		//printf("Received: %d\n", data);
+    return (unsigned int) data; 
+}
+
+void Bluetooth_Write(unsigned char data)  
+{
+    while((UART1->FR & (1<<5)) != 0);  /* wait until Tx buffer not full */
+    UART1->DR = data;                  /* before giving it another byte */
+}
+
+void Bluetooth_Write_String(char *str)
+{
+  while(*str)
+	{
+		Bluetooth_Write(*(str++));
+	}
+}
