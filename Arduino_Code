@@ -1,0 +1,120 @@
+// Arduino Nano Master Code - Fingerprint Sensor + HC05
+#include <SoftwareSerial.h>
+#include <Adafruit_Fingerprint.h>
+
+// Pin definitions
+#define HC05_TX_PIN 2  
+#define HC05_RX_PIN 3  
+#define FP_TX_PIN 4    
+#define FP_RX_PIN 5    
+
+// Debug LED pin (built-in LED on Nano)
+#define DEBUG_LED 13
+
+// Create software serial objects for HC05 and Fingerprint sensor
+SoftwareSerial hc05Serial(HC05_TX_PIN, HC05_RX_PIN);  // RX, TX
+SoftwareSerial fpSerial(FP_TX_PIN, FP_RX_PIN);        // RX, TX
+
+// Initialize fingerprint sensor
+Adafruit_Fingerprint finger = Adafruit_Fingerprint(&fpSerial);
+
+// Status codes
+#define STATUS_NO_FINGER 0
+#define STATUS_UNKNOWN_FINGER 1
+#define STATUS_KNOWN_FINGER 2  
+
+void setup() {
+    // Initialize serial communications
+    Serial.begin(9600);         // Debug serial (with PC)
+    hc05Serial.begin(9600);     // HC05 baud rate
+    finger.begin(57600);        // R307 baud rate
+
+    // Configure debug LED
+    pinMode(DEBUG_LED, OUTPUT);
+    digitalWrite(DEBUG_LED, LOW);
+
+    // Initialize fingerprint sensor
+    if (finger.verifyPassword()) {
+        Serial.println("Found fingerprint sensor!");
+        blinkLED(2);  // Two blinks for success
+    } else {
+        Serial.println("Did not find fingerprint sensor!");
+        while (1) {
+            blinkLED(1);  // Continuous single blinks for error
+            delay(1000);
+        }
+    }
+
+    // Print sensor parameters for debugging
+    printSensorParameters();
+}
+
+void loop() {
+    int fingerprintID = getFingerprintID();
+    
+    if (fingerprintID == FINGERPRINT_NOFINGER) {
+        // No finger detected
+        //Serial.println("No finger detected");
+    } else if (fingerprintID == FINGERPRINT_NOTFOUND) {
+        // Unknown fingerprint
+        Serial.println("Unknown fingerprint");
+        blinkLED(3);  // Three blinks for unknown finger
+    } else if (fingerprintID > 0) {
+        // Known fingerprint
+        sendToTiva(fingerprintID);
+        Serial.print("Found ID #"); Serial.println(fingerprintID);
+        blinkLED(1);  // One blink for successful recognition
+    }
+    
+    delay(50);  // Small delay between scans
+}
+
+// Function to get Fingerprint ID
+int getFingerprintID() {
+    uint8_t p = finger.getImage();
+    if (p != FINGERPRINT_OK) return FINGERPRINT_NOFINGER;
+
+    p = finger.image2Tz();
+    if (p != FINGERPRINT_OK) return FINGERPRINT_NOFINGER;
+
+    p = finger.fingerFastSearch();
+    if (p != FINGERPRINT_OK) return FINGERPRINT_NOTFOUND;
+    
+    return finger.fingerID;
+}
+
+// Function to send data to Tiva via HC05
+void sendToTiva(uint8_t data) {
+    static uint8_t lastSentData = 255;  // Initialize with an invalid value
+    unsigned int c = data + '0';
+    
+    // Only send if data has changed
+    if (lastSentData != data) {
+        hc05Serial.write(c);
+        lastSentData = data;
+        
+        // Debug output
+        Serial.print("Sent to Tiva: ");
+        Serial.println(c);
+    }
+}
+
+// Debug LED blink function
+void blinkLED(int times) {
+    for (int i = 0; i < times; i++) {
+        digitalWrite(DEBUG_LED, HIGH);
+        delay(100);
+        digitalWrite(DEBUG_LED, LOW);
+        delay(100);
+    }
+}
+
+// Print sensor parameters for debugging
+void printSensorParameters() {
+    Serial.println(F("Reading sensor parameters"));
+    finger.getParameters();
+    Serial.print(F("Status: 0x")); Serial.println(finger.status_reg, HEX);
+    Serial.print(F("Sys ID: 0x")); Serial.println(finger.system_id, HEX);
+    Serial.print(F("Capacity: ")); Serial.println(finger.capacity);
+    Serial.print(F("Security level: ")); Serial.println(finger.security_level);
+}
